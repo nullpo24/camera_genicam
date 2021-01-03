@@ -186,13 +186,24 @@ static void set_cancel (int signal)
 // 	return stream;
 // } // CreateStream()
 
-void Start()
+static void NewBuffer(Signal<const rcg::Buffer*> &signal, std::vector<std::shared_ptr<rcg::Stream> > &stream)
 {
+	const rcg::Buffer     *buffer;
 
-    signal.emit "msg";
+	buffer=stream[0]->grab(3000);
+	if(buffer == NULL) return;
+	if(buffer->getIsIncomplete())
+	{
+		RCLCPP_WARN ( global.node->get_logger(), "Incomplete buffer received");
+		// buffers_incomplete++;
+		return;
+	}
+
+    signal.emit(buffer);
 }
 
-static void NewBuffer_callback (std::vector<std::shared_ptr<rcg::Stream> > stream, ApplicationData *pApplicationdata)
+// static void NewBuffer_callback (std::vector<std::shared_ptr<rcg::Stream> > stream, ApplicationData *pApplicationdata)
+static void NewBuffer_callback (const rcg::Buffer*    buffer)
 {
 	static uint64_t  cm = 0L;	// Camera time prev
 	uint64_t  		 cn = 0L;	// Camera time now
@@ -220,10 +231,7 @@ static void NewBuffer_callback (std::vector<std::shared_ptr<rcg::Stream> > strea
 	int64_t			 ki1 = -1L;		// A gentle pull toward zero.
 	int64_t			 ki2 = 1024L;
 
-	static uint32_t	 iFrame = 0;	// Frame counter.
-    
-	// ArvBuffer		*buffer;
-	const rcg::Buffer     *buffer;
+	// static uint32_t	 iFrame = 0;	// Frame counter.
 
 	
 #ifdef TUNING			
@@ -252,82 +260,77 @@ static void NewBuffer_callback (std::vector<std::shared_ptr<rcg::Stream> > strea
 #endif
 	
     // buffer = arv_stream_try_pop_buffer (stream);
-	buffer=stream[0]->grab(3000);
-    if (buffer != NULL) 
-    {
-        if (!buffer->getIsIncomplete()) 
-        {
-			sensor_msgs::msg::Image msg;
+	
+
+	sensor_msgs::msg::Image msg;
 			
-        	pApplicationdata->nBuffers++;
-			std::vector<uint8_t> this_data(buffer->getSize(0));
-			memcpy(&this_data[0], buffer->getHandle(), buffer->getSize(0));
+    // pApplicationdata->nBuffers++;
+	std::vector<uint8_t> this_data(buffer->getSize(0));
+	memcpy(&this_data[0], buffer->getHandle(), buffer->getSize(0));
 
 
-			// Camera/ROS Timestamp coordination.
-			//cn				= (uint64_t)buffer->timestamp_ns;				// Camera now
-			cn              = buffer->getTimestampNS()%1000000000;
-			// rn	 			= ros::Time::now().toNSec();					// ROS now
-			// rn	 			= system_clock.now();
+	// Camera/ROS Timestamp coordination.
+	//cn				= (uint64_t)buffer->timestamp_ns;				// Camera now
+	cn              = buffer->getTimestampNS()%1000000000;
+	// rn	 			= ros::Time::now().toNSec();					// ROS now
+	// rn	 			= system_clock.now();
 			
-			// if (iFrame < 10)
-			// {
-			// 	cm = cn;
-			// 	tm  = rn.now();
-			// }
+	// if (iFrame < 10)
+	// {
+	// 	cm = cn;
+	// 	tm  = rn.now();
+	// }
 			
-			// Control the error between the computed image timestamp and the ROS timestamp.
-			// en = (int64_t)tm + (int64_t)cn - (int64_t)cm - (int64_t)rn; // i.e. tn-rn, but calced from prior values.
-			// de = en-em;
-			// ie += en;
-			// u = kp1*(en/kp2) + ki1*(ie/ki2) + kd1*(de/kd2);  // kp<0, ki<0, kd>0
+	// Control the error between the computed image timestamp and the ROS timestamp.
+	// en = (int64_t)tm + (int64_t)cn - (int64_t)cm - (int64_t)rn; // i.e. tn-rn, but calced from prior values.
+	// de = en-em;
+	// ie += en;
+	// u = kp1*(en/kp2) + ki1*(ie/ki2) + kd1*(de/kd2);  // kp<0, ki<0, kd>0
 			
-			// Compute the new timestamp.
-			tn = (uint64_t)((int64_t)tm + (int64_t)cn-(int64_t)cm + u);
+	// Compute the new timestamp.
+	tn = (uint64_t)((int64_t)tm + (int64_t)cn-(int64_t)cm + u);
 #ifdef TUNING			
-			RCLCPP_WARN ( global.node->get_logger(), "en=%16ld, ie=%16ld, de=%16ld, u=%16ld + %16ld + %16ld = %16ld", en, ie, de, kp1*(en/kp2), ki1*(ie/ki2), kd1*(de/kd2), u);
-			RCLCPP_WARN ( global.node->get_logger(), "cn=%16lu, rn=%16lu, cn-cm=%8ld, rn-rm=%8ld, tn-tm=%8ld, tn-rn=%ld", cn, rn, cn-cm, rn-rm, (int64_t)tn-(int64_t)tm, tn-rn);
-			msgInt64.data = tn-rn; //cn-cm+tn-tm; //
-			global.ppubInt64->publish(msgInt64);
-			rm = rn;
+	RCLCPP_WARN ( global.node->get_logger(), "en=%16ld, ie=%16ld, de=%16ld, u=%16ld + %16ld + %16ld = %16ld", en, ie, de, kp1*(en/kp2), ki1*(ie/ki2), kd1*(de/kd2), u);
+	RCLCPP_WARN ( global.node->get_logger(), "cn=%16lu, rn=%16lu, cn-cm=%8ld, rn-rm=%8ld, tn-tm=%8ld, tn-rn=%ld", cn, rn, cn-cm, rn-rm, (int64_t)tn-(int64_t)tm, tn-rn);
+	msgInt64.data = tn-rn; //cn-cm+tn-tm; //
+	global.ppubInt64->publish(msgInt64);
+	rm = rn;
 #endif
 			
-			// Save prior values.
-			cm = cn;
-			tm = tn;
-			em = en;
+	// Save prior values.
+	cm = cn;
+	tm = tn;
+	em = en;
 			
-			// Construct the image message.
-			// msg.header.stamp.fromNSec(tn);               //TBD
-			// msg.header.seq = buffer->priv->frame_id;    //TBD
-			// msg.header.frame_id = global.config.frame_id;
-			msg.width = global.widthRoi;
-			msg.height = global.heightRoi;
-			msg.encoding = global.pszPixelformat;
-			msg.step = msg.width * global.nBytesPixel;
-			msg.data = this_data;
+	// Construct the image message.
+	// msg.header.stamp.fromNSec(tn);               //TBD
+	// msg.header.seq = buffer->priv->frame_id;    //TBD
+	// msg.header.frame_id = global.config.frame_id;
+	msg.width = global.widthRoi;
+	msg.height = global.heightRoi;
+	msg.encoding = global.pszPixelformat;
+	msg.step = msg.width * global.nBytesPixel;
+	msg.data = this_data;
 
-			// get current CameraInfo data
-			// global.camerainfo = global.pCameraInfoManager->getCameraInfo();
-			// global.camerainfo.header.stamp = msg.header.stamp;
-			// global.camerainfo.header.seq = msg.header.seq;
-			// global.camerainfo.header.frame_id = msg.header.frame_id;
-			// global.camerainfo.width = global.widthRoi;
-			// global.camerainfo.height = global.heightRoi;
-			global.publisher->publish(msg);
-			// global.publisher.Publish(msg);
+	// get current CameraInfo data
+	// global.camerainfo = global.pCameraInfoManager->getCameraInfo();
+	// global.camerainfo.header.stamp = msg.header.stamp;
+	// global.camerainfo.header.seq = msg.header.seq;
+	// global.camerainfo.header.frame_id = msg.header.frame_id;
+	// global.camerainfo.width = global.widthRoi;
+	// global.camerainfo.height = global.heightRoi;
+	global.publisher->publish(msg);
+	// global.publisher.Publish(msg);
 				
-        }else{
-            RCLCPP_WARN ( global.node->get_logger(), "Incomplete buffer received");
-            // buffers_incomplete++;
-		}
-        	
-        // arv_stream_push_buffer (stream, buffer);
-        iFrame++;
-    }
 } // NewBuffer_callback()
 
-static void ControlLost_callback (std::shared_ptr<rcg::Device> dev)
+void ControlLost(Signal<> &signal){
+
+    signal.emit();
+}
+
+// static void ControlLost_callback (std::shared_ptr<rcg::Device> dev)
+static void ControlLost_callback ()
 {
     RCLCPP_ERROR ( global.node->get_logger(), "Control lost.");
 
@@ -343,20 +346,27 @@ static gboolean SoftwareTrigger_callback (void *pCamera)
 }
 
 
+void PeriodicTask(Signal<> &signal)
+{
+	//do something
+    signal.emit();
+}
+
 // PeriodicTask_callback()
 // Check for termination, and spin for ROS.
-static gboolean PeriodicTask_callback (void *applicationdata)
+// static gboolean PeriodicTask_callback (void *applicationdata)
+static gboolean PeriodicTask_callback ()
 {
-    ApplicationData *pData = (ApplicationData*)applicationdata;
+    // ApplicationData *pData = (ApplicationData*)applicationdata;
 
-    RCLCPP_INFO ( global.node->get_logger(), "Frame rate = %d Hz", pData->nBuffers);
-    pData->nBuffers = 0;
+    // RCLCPP_INFO ( global.node->get_logger(), "Frame rate = %d Hz", pData->nBuffers);
+    // pData->nBuffers = 0;
 
-    if (global.bCancel)
-    {
-        g_main_loop_quit (pData->main_loop);
-        return FALSE;
-    }
+    // if (global.bCancel)
+    // {
+    //     g_main_loop_quit (pData->main_loop);
+    //     return FALSE;
+    // }
 
     // ros::spinOnce();
 	rclcpp::spin_some(global.node);
@@ -364,10 +374,10 @@ static gboolean PeriodicTask_callback (void *applicationdata)
     return TRUE;
 } // PeriodicTask_callback()
 
-void main_loop()
+void main_loop(std::vector<std::shared_ptr<rcg::Stream> > &stream)
 {
     // create new signal
-    Signal<sensor_msgs::msg::Image> signal1; //NewBuffer()
+    Signal<const rcg::Buffer*>      signal1; //NewBuffer()
 	Signal<>                        signal2; //ControlLost()
 	Signal<>                        signal3; //PeriodicTask()
 
@@ -377,11 +387,12 @@ void main_loop()
 	signal2.connect(&ControlLost_callback);
 	signal3.connect(&PeriodicTask_callback);
 
-	signal (SIGINT, pSigintHandlerOld);
-
-    auto th1 = std::thread([]{ NewBuffer(); });
-	auto th2 = std::thread([]{ ControlLost(); });
-	auto th3 = std::thread([]{ PeriodicTask(); });
+    // auto th1 = std::thread([]{ NewBuffer(signal1,stream); });
+	// auto th2 = std::thread([]{ ControlLost(signal2); });
+	// auto th3 = std::thread([]{ PeriodicTask(signal3); });
+	std::thread th1(NewBuffer, std::ref(signal1), std::ref(stream));
+	std::thread th2(ControlLost, std::ref(signal2));
+	std::thread th3(PeriodicTask, std::ref(signal3));
     while(true){
         
         // do_another_things();
@@ -708,12 +719,13 @@ int main(int argc, char * argv[])
 
 		void (*pSigintHandlerOld)(int);
 		pSigintHandlerOld = signal (SIGINT, set_cancel);
+		signal (SIGINT, pSigintHandlerOld);
         
 		// arv_device_execute_command (global.pDevice, "AcquisitionStart");
 		stream[0]->open();
         stream[0]->startStreaming();
         
-		main_loop();
+		main_loop(std::ref(stream));
 		// applicationdata.main_loop = g_main_loop_new (NULL, FALSE);
 		// g_main_loop_run (applicationdata.main_loop);
 
