@@ -186,6 +186,11 @@ static void set_cancel (int signal)
 // 	return stream;
 // } // CreateStream()
 
+void Start()
+{
+
+    signal.emit "msg";
+}
 
 static void NewBuffer_callback (std::vector<std::shared_ptr<rcg::Stream> > stream, ApplicationData *pApplicationdata)
 {
@@ -358,6 +363,34 @@ static gboolean PeriodicTask_callback (void *applicationdata)
 
     return TRUE;
 } // PeriodicTask_callback()
+
+void main_loop()
+{
+    // create new signal
+    Signal<sensor_msgs::msg::Image> signal1; //NewBuffer()
+	Signal<>                        signal2; //ControlLost()
+	Signal<>                        signal3; //PeriodicTask()
+
+
+    // attach a slot
+	signal1.connect(&NewBuffer_callback);
+	signal2.connect(&ControlLost_callback);
+	signal3.connect(&PeriodicTask_callback);
+
+	signal (SIGINT, pSigintHandlerOld);
+
+    auto th1 = std::thread([]{ NewBuffer(); });
+	auto th2 = std::thread([]{ ControlLost(); });
+	auto th3 = std::thread([]{ PeriodicTask(); });
+    while(true){
+        
+        // do_another_things();
+		break;
+    }
+	th1.join();
+	th2.join();
+	th3.join();
+}
 
 
 int main(int argc, char * argv[])
@@ -647,9 +680,9 @@ int main(int argc, char * argv[])
 		// 	}
 		// }
 
- 		ApplicationData applicationdata;
-		applicationdata.nBuffers=0;
-		applicationdata.main_loop = 0;
+ 		// ApplicationData applicationdata;
+		// applicationdata.nBuffers=0;
+		// applicationdata.main_loop = 0;
 
         // Set up image_raw.
         // image_transport::ImageTransport		*pTransport = new image_transport::ImageTransport(*global.node.get()); //TBD
@@ -666,17 +699,12 @@ int main(int argc, char * argv[])
 
 		// Connect signals with callbacks.
 		
-		g_signal_connect (stream,        "new-buffer",   G_CALLBACK (NewBuffer_callback),   &applicationdata);
-		g_signal_connect (dev, "control-lost", G_CALLBACK (ControlLost_callback), NULL);
-		g_timeout_add_seconds (1, PeriodicTask_callback, &applicationdata);
+		// g_signal_connect (stream,        "new-buffer",   G_CALLBACK (NewBuffer_callback),   &applicationdata);
+		// g_signal_connect (dev, "control-lost", G_CALLBACK (ControlLost_callback), NULL);
+		// g_timeout_add_seconds (1, PeriodicTask_callback, &applicationdata);
 		// arv_stream_set_emit_signals ((ArvStream *)stream, TRUE);
 
-		// create new signal
-        Signal<std::string, int> signal;
-
-        // attach a slot
-		signal.connect(&NewBuffer_callback);
-		signal.connect(&ControlLost_callback);
+		
 
 		void (*pSigintHandlerOld)(int);
 		pSigintHandlerOld = signal (SIGINT, set_cancel);
@@ -684,10 +712,10 @@ int main(int argc, char * argv[])
 		// arv_device_execute_command (global.pDevice, "AcquisitionStart");
 		stream[0]->open();
         stream[0]->startStreaming();
-
-
-		applicationdata.main_loop = g_main_loop_new (NULL, FALSE);
-		g_main_loop_run (applicationdata.main_loop);
+        
+		main_loop();
+		// applicationdata.main_loop = g_main_loop_new (NULL, FALSE);
+		// g_main_loop_run (applicationdata.main_loop);
 
 		// if (global.idSoftwareTriggerTimer)
 		// {
@@ -695,9 +723,9 @@ int main(int argc, char * argv[])
 		// 	global.idSoftwareTriggerTimer = 0;
 		// }
 
-		signal (SIGINT, pSigintHandlerOld);
+		
 
-		g_main_loop_unref (applicationdata.main_loop);
+		// g_main_loop_unref (applicationdata.main_loop);
 
 		// guint64 n_completed_buffers;
 		// guint64 n_failures;
