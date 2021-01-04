@@ -30,5 +30,9 @@ install(TARGETS
   camnode
   DESTINATION lib/${PROJECT_NAME})
 
-target_link_libraries(camnode ${RC_GENICAM_API_LIBRARY})
+target_link_libraries(
+                     camnode 
+                     ${RC_GENICAM_API_LIBRARY}
+                     /usr/lib/x86_64-linux-gnu/librc_genicam_api.so
+                     )
 ament_package()
