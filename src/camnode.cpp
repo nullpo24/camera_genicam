@@ -637,9 +637,9 @@ int main(int argc, char * argv[])
 		// RCLCPP_INFO ( global.node->get_logger(), "    ROI x,y,w,h          = %d, %d, %d, %d", global.xRoi, global.yRoi, global.widthRoi, global.heightRoi);
 		RCLCPP_INFO ( global.node->get_logger(), "    Pixel format         = %s", global.pszPixelformat);
 		// RCLCPP_INFO ( global.node->get_logger(), "    BytesPerPixel        = %d", global.nBytesPixel);
-		RCLCPP_INFO ( global.node->get_logger(), "    Acquisition Mode     = %s", acquisition_mode);
-		RCLCPP_INFO ( global.node->get_logger(), "    Trigger Mode         = %s", trigger_mode);
-		RCLCPP_INFO ( global.node->get_logger(), "    Trigger Source       = %s", trigger_source);
+		RCLCPP_INFO ( global.node->get_logger(), "    Acquisition Mode     = %s", acquisition_mode.c_str());
+		RCLCPP_INFO ( global.node->get_logger(), "    Trigger Mode         = %s", trigger_mode.c_str());
+		RCLCPP_INFO ( global.node->get_logger(), "    Trigger Source       = %s", trigger_source.c_str());
 		// RCLCPP_INFO ( global.node->get_logger(), "    Can set FrameRate:     %s", global.isImplementedAcquisitionFrameRate ? "True" : "False");
 		if (global.isImplementedAcquisitionFrameRate)
 		{
