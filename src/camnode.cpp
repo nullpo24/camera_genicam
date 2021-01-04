@@ -301,7 +301,6 @@ static void NewBuffer_callback (const rcg::Buffer*    buffer)
 	cm = cn;
 	tm = tn;
 	em = en;
-			
 	// Construct the image message.
 	// msg.header.stamp.fromNSec(tn);               //TBD
 	// msg.header.seq = buffer->priv->frame_id;    //TBD
@@ -396,6 +395,7 @@ void main_loop(std::vector<std::shared_ptr<rcg::Stream> > &stream)
     while(true){
         
         // do_another_things();
+		std::this_thread::sleep_for(std::chrono::minutes(3));
 		break;
     }
 	th1.join();
@@ -481,21 +481,21 @@ int main(int argc, char * argv[])
 		std::cerr << "Device '" << argv[i] << "' not found!" << std::endl;
         // ret=1;
 	}
-    RCLCPP_INFO( global.node->get_logger(), "Opend: %s-%s",
-                rcg::getString(global.remoteNodemap, "DeviceVendorName", true), 
-                rcg::getString(global.remoteNodemap, "DeviceID", true));
-
-    
-    // See if some basic camera features exist;
-    		// See if some basic camera features exist.
 
 	dev->open(rcg::Device::CONTROL);
     global.remoteNodemap=dev->getRemoteNodeMap();
 
+    RCLCPP_INFO( global.node->get_logger(), "Opened: %s-%s",
+                rcg::getString(global.remoteNodemap, "DeviceVendorName", true).c_str(), 
+                rcg::getString(global.remoteNodemap, "DeviceUserID", true).c_str());
+
+
+    // See if some basic camera features exist;
+    		// See if some basic camera features exist.
+
 		// pGcNode = arv_device_get_feature (global.pDevice, "AcquisitionMode");
 		// global.isImplementedAcquisitionMode = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
-		std::vector<std::string> acquisition_mode;
-        rcg::getEnum(global.remoteNodemap, "AcquisitionMode", acquisition_mode, false);
+        std::string acquisition_mode = rcg::getEnum(global.remoteNodemap, "AcquisitionMode", false);
 
 		// pGcNode = arv_device_get_feature (global.pDevice, "GainRaw");
 		// global.isImplementedGain = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
@@ -510,28 +510,23 @@ int main(int argc, char * argv[])
 
 		// pGcNode = arv_device_get_feature (global.pDevice, "ExposureAuto");
 		// global.isImplementedExposureAuto = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
-        std::vector<std::string> exposure_auto;
-        rcg::getEnum(global.remoteNodemap, "ExposureAuto", exposure_auto, false);
+        std::string exposure_auto = rcg::getEnum(global.remoteNodemap, "ExposureAuto", false);
 
 		// pGcNode = arv_device_get_feature (global.pDevice, "GainAuto");
 		// global.isImplementedGainAuto = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
-        std::vector<std::string> gain_auto;
-        rcg::getEnum(global.remoteNodemap, "GainAuto", gain_auto, false);
+        std::string gain_auto = rcg::getEnum(global.remoteNodemap, "GainAuto", false);
 
 		// pGcNode = arv_device_get_feature (global.pDevice, "TriggerSelector");
 		// global.isImplementedTriggerSelector = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
-		std::vector<std::string> trigger_selector;
-        rcg::getEnum(global.remoteNodemap, "TriggerSelector", trigger_selector, false);
+        std::string trigger_selector = rcg::getEnum(global.remoteNodemap, "TriggerSelector", false);
 
 		// pGcNode = arv_device_get_feature (global.pDevice, "TriggerSource");
 		// global.isImplementedTriggerSource = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
-		std::vector<std::string> trigger_source;
-        rcg::getEnum(global.remoteNodemap, "TriggerSource", trigger_source, false);
+        std::string trigger_source = rcg::getEnum(global.remoteNodemap, "TriggerSource", false);
 
 		// pGcNode = arv_device_get_feature (global.pDevice, "TriggerMode");
 		// global.isImplementedTriggerMode = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
-        std::vector<std::string> trigger_mode;
-        rcg::getEnum(global.remoteNodemap, "TriggerMode", trigger_mode, false);
+        std::string trigger_mode = rcg::getEnum(global.remoteNodemap, "TriggerMode", false);
 
 		// pGcNode = arv_device_get_feature (global.pDevice, "FocusPos");
 		// global.isImplementedFocusPos = ARV_GC_FEATURE_NODE (pGcNode) ? arv_gc_feature_node_is_implemented (ARV_GC_FEATURE_NODE (pGcNode), &error) : FALSE;
@@ -628,16 +623,15 @@ int main(int argc, char * argv[])
 		// global.nBytesPixel      		= ARV_PIXEL_FORMAT_BYTE_PER_PIXEL(arv_device_get_integer_feature_value(global.pDevice, "PixelFormat"));
 		// global.config.FocusPos  		= global.isImplementedFocusPos ? arv_device_get_integer_feature_value (global.pDevice, "FocusPos") : 0;
 
-		std::vector<std::string> pixel_format;
-		rcg::getEnum(global.remoteNodemap, "PixelFormat", pixel_format, false);
-		// global.pszPixelformat   		= pixel_format.c_str();
+		std::string pixel_format = rcg::getEnum(global.remoteNodemap, "PixelFormat", false);
+		global.pszPixelformat   		= pixel_format.c_str();
 		
 		// Print information.
 		RCLCPP_INFO ( global.node->get_logger(), "    Using Camera Configuration:");
 		RCLCPP_INFO ( global.node->get_logger(), "    ---------------------------");
-		RCLCPP_INFO ( global.node->get_logger(), "    Vendor name          = %s", rcg::getString(global.remoteNodemap, "DeviceVendorName", true));
-		RCLCPP_INFO ( global.node->get_logger(), "    Model name           = %s", rcg::getString(global.remoteNodemap, "DeviceModelName", true));
-		RCLCPP_INFO ( global.node->get_logger(), "    Device id            = %s", rcg::getString(global.remoteNodemap, "DeviceID", true));
+		RCLCPP_INFO ( global.node->get_logger(), "    Vendor name          = %s", rcg::getString(global.remoteNodemap, "DeviceVendorName", true).c_str());
+		RCLCPP_INFO ( global.node->get_logger(), "    Model name           = %s", rcg::getString(global.remoteNodemap, "DeviceModelName", true).c_str());
+		RCLCPP_INFO ( global.node->get_logger(), "    Device User ID       = %s", rcg::getString(global.remoteNodemap, "DeviceUserID", true).c_str());
 		RCLCPP_INFO ( global.node->get_logger(), "    Sensor width         = %d", global.widthSensor);
 		RCLCPP_INFO ( global.node->get_logger(), "    Sensor height        = %d", global.heightSensor);
 		// RCLCPP_INFO ( global.node->get_logger(), "    ROI x,y,w,h          = %d, %d, %d, %d", global.xRoi, global.yRoi, global.widthRoi, global.heightRoi);
