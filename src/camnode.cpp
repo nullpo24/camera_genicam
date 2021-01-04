@@ -186,20 +186,25 @@ static void set_cancel (int signal)
 // 	return stream;
 // } // CreateStream()
 
+std::atomic<bool> user_interrupt(false);
+
 static void NewBuffer(Signal<const rcg::Buffer*> &signal, std::vector<std::shared_ptr<rcg::Stream> > &stream)
 {
 	const rcg::Buffer     *buffer;
-
-	buffer=stream[0]->grab(3000);
-	if(buffer == NULL) return;
-	if(buffer->getIsIncomplete())
+    int retry = 5;
+    while(retry > 0 && !user_interrupt)
 	{
-		RCLCPP_WARN ( global.node->get_logger(), "Incomplete buffer received");
-		// buffers_incomplete++;
-		return;
+	    buffer=stream[0]->grab(3000);
+	    if(buffer == NULL) return;
+	    if(buffer->getIsIncomplete())
+	    {
+	    	RCLCPP_WARN ( global.node->get_logger(), "Incomplete buffer received");
+	    	// buffers_incomplete++;
+	    	return;
+	    }
+    
+        signal.emit(buffer);
 	}
-
-    signal.emit(buffer);
 }
 
 // static void NewBuffer_callback (std::vector<std::shared_ptr<rcg::Stream> > stream, ApplicationData *pApplicationdata)
@@ -395,7 +400,7 @@ void main_loop(std::vector<std::shared_ptr<rcg::Stream> > &stream)
     while(true){
         
         // do_another_things();
-		std::this_thread::sleep_for(std::chrono::minutes(3));
+		std::this_thread::sleep_for(std::chrono::minutes(1));
 		break;
     }
 	th1.join();
